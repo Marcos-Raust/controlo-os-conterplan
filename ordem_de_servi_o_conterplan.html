@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OS Manutenção - Conterplan</title>
+    
+    <!-- Link para o Manifest dinâmico (PWA) -->
+    <link rel="manifest" id="manifest-link">
+    
+    <!-- Fontes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] },
+                    colors: {
+                        conterOrange: '#FE8C00',
+                        conterOrangeHover: '#e07a00',
+                        conterBlue: '#0065FF',
+                        conterBlueHover: '#0052cc',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Bibliotecas de Terceiros: pdfmake -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        
+        /* Ocultar barra de rolagem mas permitir rolagem para inputs/tabelas */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Customizar input date/time para ficar mais limpo */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover,
+        input[type="time"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+        
+        /* Canvas para assinatura */
+        .signature-pad {
+            touch-action: none; /* Previne rolagem da página ao assinar no celular */
+        }
+        
+        /* Transições suaves */
+        * { transition: background-color 0.3s, border-color 0.3s; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 min-h-screen pb-24">
+
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <button type="button" class="flex items-center gap-2 text-conterBlue dark:text-blue-400 hover:text-conterBlueHover font-medium" onclick="history.back() || alert('Voltar para página anterior')">
+                <i class="fa-solid fa-arrow-left"></i> Voltar
+            </button>
+            
+            <div class="flex items-center gap-4">
+                <span class="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 font-medium italic">
+                    <i class="fa-solid fa-folder-tree"></i> Destino PDF: ...\OFICINA\CONTROLE OS
+                </span>
+                <button type="button" onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block"></i>
+                </button>
+                <select id="osStatus" class="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-sm font-semibold py-2 pl-3 pr-8 focus:ring-2 focus:ring-conterOrange cursor-pointer text-conterOrange">
+                    <option value="AG. MÃO DE OBRA" class="text-conterOrange font-bold">AG. MÃO DE OBRA</option>
+                    <option value="AG. ENVIO OFICINA EXT. / TERC." class="text-conterOrange font-bold">AG. ENVIO OFICINA EXT. / TERC.</option>
+                    <option value="AG. TERCEIRO" class="text-conterOrange font-bold">AG. TERCEIRO</option>
+                    <option value="DIAGNÓSTICO" class="text-conterOrange font-bold">DIAGNÓSTICO</option>
+                    <option value="DESMONTAGEM" class="text-conterOrange font-bold">DESMONTAGEM</option>
+                    <option value="EM EXECUÇÃO" class="text-conterOrange font-bold">EM EXECUÇÃO</option>
+                    <option value="PEDIDO EM APROVAÇÃO" class="text-conterOrange font-bold">PEDIDO EM APROVAÇÃO</option>
+                    <option value="AG. PEÇAS / SERVIÇOS" class="text-conterOrange font-bold">AG. PEÇAS / SERVIÇOS</option>
+                    <option value="MONTAGEM" class="text-conterOrange font-bold">MONTAGEM</option>
+                    <option value="LIBERADO COM RESTRIÇÃO" class="text-conterOrange font-bold">LIBERADO COM RESTRIÇÃO</option>
+                    <option value="LIBERADO" class="text-conterOrange font-bold">LIBERADO</option>
+                    <option value="AGUARDANDO TRANSPORTE" class="text-conterOrange font-bold">AGUARDANDO TRANSPORTE</option>
+                    <option value="TESTE" class="text-conterOrange font-bold">TESTE</option>
+                    <option value="DESMOBILIZADO" class="text-conterOrange font-bold">DESMOBILIZADO</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+        <form id="osForm" class="space-y-6">
+            
+            <!-- Seção 1: Identificação e Cabeçalho -->
+            <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8">
+                
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-200 dark:border-gray-700 pb-5 mb-5 gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-conterBlue text-white rounded-lg flex items-center justify-center text-2xl font-bold shadow-md">
+                            C
+                        </div>
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight uppercase"><span class="text-conterBlue">Conter</span><span class="text-conterOrange">plan</span></h1>
+                            <h2 class="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400">ORDEM DE SERVIÇO DE MANUTENÇÃO</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col items-end">
+                        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nº da O.S.</label>
+                        <input type="text" id="osNumber" class="text-2xl font-bold text-center w-32 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 focus:border-conterBlue focus:ring-0 text-conterBlue dark:text-blue-400" readonly>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div class="md:col-span-12 flex flex-wrap gap-4 items-end">
+                        <div class="flex-grow min-w-[250px]">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Local de Execução</label>
+                            <select id="local" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 focus:border-conterBlue outline-none appearance-none cursor-pointer">
+                                <option value="">Selecione o local...</option>
+                                <option value="Oficina Central">Oficina Central</option>
+                                <option value="Rio Doce">Rio Doce</option>
+                                <option value="Barão de Cocais">Barão de Cocais</option>
+                                <option value="Antônio Pereira">Antônio Pereira</option>
+                                <option value="São Gonçalo do Rio Abaixo">São Gonçalo do Rio Abaixo</option>
+                                <option value="Ouro Preto">Ouro Preto</option>
+                            </select>
+                        </div>
+                        <div class="w-auto flex-shrink-0">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">TAG</label>
+                            <select id="tag" class="w-24 sm:w-32 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 font-mono text-center focus:border-conterBlue outline-none appearance-none cursor-pointer">
+                                <option value="">---</option>
+                                <!-- JS vai popular de CON-001 a CON-100 -->
+                            </select>
+                        </div>
+                        <div class="w-auto flex-shrink-0">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">KM / Horímetro</label>
+                            <input type="text" id="kmHorimetro" class="w-32 sm:w-40 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 text-right focus:border-conterBlue outline-none" placeholder="Ex: 1.250,50" oninput="maskNumber(this)">
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-12 flex flex-wrap gap-4 items-end mt-2">
+                        <div class="flex-grow min-w-[200px]">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Equipamento</label>
+                            <input type="text" id="equipamento" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 focus:border-conterBlue outline-none">
+                        </div>
+                        <div class="flex-grow min-w-[200px]">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Motorista / Operador</label>
+                            <input type="text" id="operador" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 focus:border-conterBlue outline-none">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8">
+                <div class="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+                    
+                    <div class="flex-shrink-0 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600 w-full lg:w-auto">
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 uppercase mb-2"><i class="fa-solid fa-wrench mr-2"></i>Tipo de O.S.</label>
+                        <select id="tipoManutencao" class="w-full lg:w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 focus:border-conterBlue outline-none appearance-none cursor-pointer text-sm font-medium">
+                            <option value="Corretiva">Corretiva</option>
+                            <option value="Preventiva">Preventiva</option>
+                        </select>
+                    </div>
+
+                    <div class="flex-grow w-full overflow-x-auto no-scrollbar">
+                        <div class="flex gap-4 min-w-max">
+                            <div class="flex flex-col">
+                                <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Data Parada</label>
+                                <input type="date" id="dataParada" class="w-fit bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:border-conterBlue outline-none">
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Hora Parada</label>
+                                <input type="time" id="horaParada" class="w-fit bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:border-conterBlue outline-none">
+                            </div>
+                            
+                            <div class="w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                            
+                            <div class="flex flex-col">
+                                <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Data Liberação</label>
+                                <input type="date" id="dataLib" class="w-fit bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:border-conterBlue outline-none">
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Hora Liberação</label>
+                                <input type="time" id="horaLib" class="w-fit bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:border-conterBlue outline-none">
+                            </div>
+                            
+                            <div class="w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+                            <div class="flex flex-col flex-grow">
+                                <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Responsabilidade</label>
+                                <input type="text" id="responsabilidade" class="w-48 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:border-conterBlue outline-none" placeholder="Ex: Interna / Terceiro">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8 space-y-6">
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-200 uppercase mb-2"><i class="fa-solid fa-triangle-exclamation text-conterOrange mr-2"></i>Problema Apresentado</label>
+                    <textarea id="problema" rows="3" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl p-3 focus:border-conterBlue focus:ring-1 focus:ring-conterBlue outline-none resize-y" placeholder="Descreva detalhadamente o problema relatado..."></textarea>
+                </div>
+
+                <div class="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-xl">
+                    <div class="bg-gray-100 dark:bg-gray-700/50 p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-sm uppercase text-gray-700 dark:text-gray-200"><i class="fa-solid fa-clipboard-list text-conterBlue mr-2"></i>Serviços Executados</h3>
+                    </div>
+                    <table class="w-full text-left text-sm" id="tableServicos">
+                        <thead class="bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-600 dark:text-gray-400">
+                            <tr>
+                                <th class="p-3 font-semibold w-12 text-center">#</th>
+                                <th class="p-3 font-semibold min-w-[200px]">Serviço Executado</th>
+                                <th class="p-3 font-semibold w-32">Data</th>
+                                <th class="p-3 font-semibold w-24">Hr. Início</th>
+                                <th class="p-3 font-semibold w-24">Hr. Fim</th>
+                                <th class="p-3 font-semibold w-24 text-center">Total (h)</th>
+                                <th class="p-3 font-semibold min-w-[150px]">Executantes</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="bodyServicos">
+                            <!-- Gerado via JS (8 linhas) -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-xl mt-6">
+                    <div class="bg-gray-100 dark:bg-gray-700/50 p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-sm uppercase text-gray-700 dark:text-gray-200"><i class="fa-solid fa-gears text-gray-500 dark:text-gray-400 mr-2"></i>Peças Aplicadas</h3>
+                    </div>
+                    <table class="w-full text-left text-sm" id="tablePecas">
+                        <thead class="bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-600 dark:text-gray-400">
+                            <tr>
+                                <th class="p-3 font-semibold w-12 text-center">Qtd</th>
+                                <th class="p-3 font-semibold min-w-[300px]">Descrição da Peça</th>
+                                <th class="p-3 font-semibold w-32">Cód/Part No.</th>
+                                <th class="p-3 font-semibold min-w-[150px]">Fornecedor/Origem</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="bodyPecas">
+                            <!-- Gerado via JS (6 linhas) -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </section>
+
+            <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-sm uppercase text-gray-700 dark:text-gray-200"><i class="fa-solid fa-camera text-blue-500 mr-2"></i>Registros Fotográficos <span class="text-xs font-normal text-gray-400 ml-2">(Máx. 5 fotos)</span></h3>
+                    
+                    <label class="cursor-pointer bg-blue-50 dark:bg-gray-700 text-conterBlue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold border border-blue-200 dark:border-gray-600 transition-colors">
+                        <i class="fa-solid fa-plus mr-1"></i> Adicionar Foto
+                        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple class="hidden">
+                    </label>
+                </div>
+                
+                <div id="photoPreviewContainer" class="flex gap-4 overflow-x-auto py-2 no-scrollbar min-h-[120px] items-center text-gray-400 text-sm">
+                    Nenhuma foto anexada.
+                </div>
+            </section>
+
+            <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8">
+                <h3 class="font-bold text-sm uppercase text-gray-700 dark:text-gray-200 mb-4"><i class="fa-solid fa-file-signature text-gray-600 mr-2"></i>Assinaturas</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Assinatura Mecânica -->
+                    <div class="flex flex-col items-center">
+                        <div class="w-full max-w-sm border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 relative overflow-hidden h-40">
+                            <canvas id="canvasMec" class="signature-pad w-full h-full cursor-crosshair"></canvas>
+                            <button type="button" onclick="clearCanvas(padMec)" class="absolute top-2 right-2 bg-white/80 dark:bg-gray-800/80 text-red-500 p-1.5 rounded-md text-xs hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm backdrop-blur-sm">
+                                <i class="fa-solid fa-eraser"></i> Limpar
+                            </button>
+                        </div>
+                        <div class="mt-3 text-center border-t border-gray-800 dark:border-gray-400 w-3/4 pt-1">
+                            <p class="font-semibold text-sm">Eng. Mecânica / Responsável</p>
+                            <p class="text-xs text-gray-500">Assine acima</p>
+                        </div>
+                    </div>
+
+                    <!-- Assinatura Controlador -->
+                    <div class="flex flex-col items-center">
+                        <div class="w-full max-w-sm border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 relative overflow-hidden h-40">
+                            <canvas id="canvasCtrl" class="signature-pad w-full h-full cursor-crosshair"></canvas>
+                            <button type="button" onclick="clearCanvas(padCtrl)" class="absolute top-2 right-2 bg-white/80 dark:bg-gray-800/80 text-red-500 p-1.5 rounded-md text-xs hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm backdrop-blur-sm">
+                                <i class="fa-solid fa-eraser"></i> Limpar
+                            </button>
+                        </div>
+                        <div class="mt-3 text-center border-t border-gray-800 dark:border-gray-400 w-3/4 pt-1">
+                            <p class="font-semibold text-sm">Controlador de Manutenção</p>
+                            <p class="text-xs text-gray-500">Assine acima</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </form>
+    </main>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-50">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-center sm:justify-end gap-3">
+            <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md flex items-center gap-2 text-sm sm:text-base">
+                <i class="fa-solid fa-file-excel"></i> Exportar CSV
+            </button>
+            <button onclick="saveHistory()" class="bg-gray-600 hover:bg-gray-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md flex items-center gap-2 text-sm sm:text-base">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Rascunho
+            </button>
+            <button onclick="triggerPDFGeneration()" class="bg-conterBlue hover:bg-conterBlueHover text-white px-6 py-2.5 rounded-xl font-bold shadow-lg flex items-center gap-2 text-sm sm:text-base ring-4 ring-blue-500/20">
+                <i class="fa-solid fa-file-pdf"></i> Gerar PDF Final
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO PWA & MANIFEST (Gerado Dinamicamente) ---
+        const manifest = {
+            "name": "OS Conterplan",
+            "short_name": "Conterplan",
+            "description": "Sistema de Ordem de Serviço de Manutenção",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#0065FF",
+            "icons": [
+                {
+                    "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjMDA2NUZGIiBkPSJNMzYgMjUyYzAtMTEwIDkxLTIwMCAyMDMtMjAwczIwMCA5MCAyMDAgMjAwLTkxIDIwMy0yMDAgMjAzLTIwMy05My0yMDMtMjAzem0yMzUgMTE4bDg0LTg0YzctNyA3LTE5IDAtMjZsLTE4LTE4Yy03LTctMTktNy0yNiAwbC01MyA1My0yOC0yOGMtNy03LTE5LTctMjYgMGwtMTggMThjLTcgNy03IDE5IDAgMjZsNTkgNTljNyA3IDE5IDcgMjYgMHoiLz48L3N2Zz4=",
+                    "sizes": "192x192",
+                    "type": "image/svg+xml"
+                }
+            ]
+        };
+        const manifestStr = JSON.stringify(manifest);
+        document.getElementById('manifest-link').setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(manifestStr));
+
+        // Service Worker Dinâmico (Blob) para permitir instalação PWA offline
+        const swCode = `
+            const CACHE_NAME = 'conterplan-v1';
+            self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+            self.addEventListener('fetch', e => {
+                e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+            });
+        `;
+        const blobSW = new Blob([swCode], {type: 'application/javascript'});
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(URL.createObjectURL(blobSW))
+                    .then(reg => console.log('PWA ServiceWorker registrado!'))
+                    .catch(err => console.log('Falha no SW:', err));
+            });
+        }
+
+        // --- 2. VARIÁVEIS GLOBAIS E ESTADO ---
+        let photosArray = [];
+        let padMec, padCtrl; // Instâncias dos Canvas
+        let userLocation = { lat: null, lon: null };
+
+        // --- 3. INICIALIZAÇÃO E UI ---
+        function maskNumber(input) {
+            // Remove qualquer caractere que não seja número, ponto ou vírgula
+            input.value = input.value.replace(/[^0-9.,]/g, '');
+        }
+
+        function initApp() {
+            // Tema
+            if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            // Gerar Número OS
+            let nextOs = localStorage.getItem('conterplan_next_os') || '1001';
+            document.getElementById('osNumber').value = nextOs.padStart(4, '0');
+            
+            // Setar Data e Hora atuais nos campos principais
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].substring(0,5);
+            
+            document.getElementById('dataParada').value = dateStr;
+            document.getElementById('horaParada').value = timeStr;
+            
+            // Popular select TAG (CON-001 a CON-100)
+            const tagSelect = document.getElementById('tag');
+            for(let i = 1; i <= 100; i++) {
+                const opt = document.createElement('option');
+                const tagStr = 'CON-' + i.toString().padStart(3, '0');
+                opt.value = tagStr;
+                opt.textContent = tagStr;
+                tagSelect.appendChild(opt);
+            }
+            
+            // Gerar linhas das tabelas
+            generateTableRows('bodyServicos', 8, 'servico');
+            generateTableRows('bodyPecas', 6, 'peca');
+            
+            // Setup Assinaturas
+            setTimeout(() => {
+                padMec = initSignatureCanvas('canvasMec');
+                padCtrl = initSignatureCanvas('canvasCtrl');
+            }, 100);
+            
+            // Requisitar GPS em background
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => { userLocation = {lat: pos.coords.latitude, lon: pos.coords.longitude}; },
+                    err => { console.log('GPS Bloqueado ou não disponível'); }
+                );
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        // --- 4. TABELAS DINÂMICAS E CÁLCULOS ---
+        function generateTableRows(tbodyId, count, type) {
+            const tbody = document.getElementById(tbodyId);
+            let html = '';
+            for(let i = 1; i <= count; i++) {
+                if(type === 'servico') {
+                    html += `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="p-2 text-center text-gray-400">${i}</td>
+                            <td class="p-1"><input type="text" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-conterBlue outline-none py-1 px-2"></td>
+                            <td class="p-1"><input type="date" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-conterBlue outline-none py-1 text-sm text-gray-500"></td>
+                            <td class="p-1"><input type="time" onchange="calcDiff(this, ${i})" data-row="${i}" data-type="start" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-conterBlue outline-none py-1 text-sm text-gray-500"></td>
+                            <td class="p-1"><input type="time" onchange="calcDiff(this, ${i})" data-row="${i}" data-type="end" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-conterBlue outline-none py-1 text-sm text-gray-500"></td>
+                            <td class="p-1"><input type="text" id="total_${i}" readonly class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 outline-none py-1 text-center font-bold text-conterOrange"></td>
+                            <td class="p-1"><input type="text" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-conterBlue outline-none py-1 px-2"></td>
+                        </tr>
+                    `;
+                } else {
+                    html += `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="p-1"><input type="number" step="0.1" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 text-center outline-none py-1"></td>
+                            <td class="p-1"><input type="text" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 outline-none py-1 px-2"></td>
+                            <td class="p-1"><input type="text" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 outline-none py-1 px-2"></td>
+                            <td class="p-1"><input type="text" class="w-full bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 outline-none py-1 px-2"></td>
+                        </tr>
+                    `;
+                }
+            }
+            tbody.innerHTML = html;
+        }
+
+        function calcDiff(element, row) {
+            const tr = element.closest('tr');
+            const start = tr.querySelector('input[data-type="start"]').value;
+            const end = tr.querySelector('input[data-type="end"]').value;
+            const totalInput = document.getElementById(`total_${row}`);
+            
+            if(start && end) {
+                const sSplit = start.split(':');
+                const eSplit = end.split(':');
+                let dStart = new Date(2000, 0, 1, sSplit[0], sSplit[1]);
+                let dEnd = new Date(2000, 0, 1, eSplit[0], eSplit[1]);
+                
+                if (dEnd < dStart) dEnd.setDate(dEnd.getDate() + 1); // Virou a noite
+                
+                const diffMs = dEnd - dStart;
+                const diffHrs = Math.floor(diffMs / 3600000);
+                const diffMins = Math.round((diffMs % 3600000) / 60000);
+                
+                totalInput.value = `${diffHrs.toString().padStart(2, '0')}:${diffMins.toString().padStart(2, '0')}`;
+            } else {
+                totalInput.value = '';
+            }
+        }
+
+        // --- 5. FOTOS E PREVIEW (Resize Automático) ---
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if(photosArray.length + files.length > 5) {
+                alert('Limite máximo de 5 fotos.');
+                return;
+            }
+            
+            const container = document.getElementById('photoPreviewContainer');
+            if(photosArray.length === 0) container.innerHTML = '';
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // Criar imagem para redimensionar (compressão p/ PDF não travar)
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_WIDTH = 800;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% qualidade
+                        
+                        photosArray.push(dataUrl);
+                        
+                        const div = document.createElement('div');
+                        div.className = 'relative flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-gray-200 shadow-sm';
+                        div.innerHTML = `
+                            <img src="${dataUrl}" class="w-full h-full object-cover">
+                            <button type="button" onclick="removePhoto(this, ${photosArray.length - 1})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-red-600"><i class="fa-solid fa-xmark"></i></button>
+                        `;
+                        container.appendChild(div);
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            });
+        });
+
+        function removePhoto(btn, index) {
+            photosArray.splice(index, 1);
+            btn.parentElement.remove();
+            if(photosArray.length === 0) {
+                document.getElementById('photoPreviewContainer').innerHTML = 'Nenhuma foto anexada.';
+            }
+            // Re-index delete buttons (simplificado por recarregar galeria num cenário real, mas aqui apenas remove visualmente para não complicar. Bug potencial se deletar e adicionar, então recrio a UI)
+            renderPhotos();
+        }
+
+        function renderPhotos() {
+            const container = document.getElementById('photoPreviewContainer');
+            if(photosArray.length === 0) {
+                container.innerHTML = 'Nenhuma foto anexada.';
+                return;
+            }
+            container.innerHTML = '';
+            photosArray.forEach((dataUrl, idx) => {
+                const div = document.createElement('div');
+                div.className = 'relative flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-gray-200 shadow-sm';
+                div.innerHTML = `
+                    <img src="${dataUrl}" class="w-full h-full object-cover">
+                    <button type="button" onclick="removePhoto(this, ${idx})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-red-600"><i class="fa-solid fa-xmark"></i></button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- 6. CANVAS ASSINATURAS ---
+        function initSignatureCanvas(id) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            
+            // Setup resolução responsiva
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = document.documentElement.classList.contains('dark') ? '#fff' : '#000';
+            
+            let isDrawing = false;
+            let lastX = 0; let lastY = 0;
+            let hasDrawn = false;
+            
+            function getCoords(e) {
+                if (e.touches) {
+                    const rect = canvas.getBoundingClientRect();
+                    return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+                }
+                return [e.offsetX, e.offsetY];
+            }
+            
+            function start(e) {
+                e.preventDefault();
+                isDrawing = true;
+                [lastX, lastY] = getCoords(e);
+            }
+            
+            function draw(e) {
+                if(!isDrawing) return;
+                e.preventDefault();
+                ctx.strokeStyle = document.documentElement.classList.contains('dark') ? '#fff' : '#000';
+                const [x, y] = getCoords(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                [lastX, lastY] = [x, y];
+                hasDrawn = true;
+            }
+            
+            function end() { isDrawing = false; }
+            
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', end);
+            canvas.addEventListener('mouseout', end);
+            
+            canvas.addEventListener('touchstart', start, {passive: false});
+            canvas.addEventListener('touchmove', draw, {passive: false});
+            canvas.addEventListener('touchend', end);
+            
+            return { canvas, ctx, isEmpty: () => !hasDrawn, reset: () => hasDrawn = false };
+        }
+
+        function clearCanvas(padInfo) {
+            padInfo.ctx.clearRect(0, 0, padInfo.canvas.width, padInfo.canvas.height);
+            padInfo.reset();
+        }
+
+        // --- 7. EXPORTAÇÕES (CSV e PDF) ---
+        function exportToCSV() {
+            const osNumber = document.getElementById('osNumber').value;
+            let csv = "\uFEFF"; // BOM para acentos no Excel
+            csv += `O.S. Numero;${osNumber}\nLocal;${document.getElementById('local').value}\nEquipamento;${document.getElementById('equipamento').value}\n\n`;
+            
+            csv += "SERVICOS EXECUTADOS\nDescricao;Data;Hora Inicio;Hora Fim;Total(h);Executantes\n";
+            const sRows = document.getElementById('bodyServicos').querySelectorAll('tr');
+            sRows.forEach(tr => {
+                const inputs = tr.querySelectorAll('input');
+                if(inputs[0].value) { // Só exporta se tiver descrição
+                    csv += `${inputs[0].value};${inputs[1].value};${inputs[2].value};${inputs[3].value};${inputs[4].value};${inputs[5].value}\n`;
+                }
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `OS_${osNumber}_Servicos.csv`;
+            link.click();
+        }
+
+        function saveHistory() {
+            // Em uma app real, salvaria todo o form. Aqui simulamos o salvamento.
+            const btn = document.querySelector('button[onclick="saveHistory()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Salvo!';
+            btn.classList.replace('bg-gray-600', 'bg-green-600');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.replace('bg-green-600', 'bg-gray-600');
+            }, 2000);
+        }
+
+        async function triggerPDFGeneration() {
+            // Pegar GPS caso ainda não tenha (se usuário bloqueou antes e liberou)
+            if(!userLocation.lat && navigator.geolocation) {
+                try {
+                    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout: 3000}));
+                    userLocation = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+                } catch(e) { console.warn("GPS ignorado na geração do PDF."); }
+            }
+            generatePDF();
+        }
+
+        function generatePDF() {
+            const osNum = document.getElementById('osNumber').value;
+            const status = document.getElementById('osStatus').value;
+            const tipoManutencao = document.getElementById('tipoManutencao').value;
+            const isCorretiva = tipoManutencao === 'Corretiva';
+            
+            // Helper para formatar data de YYYY-MM-DD para DD/MM/YYYY
+            const formatDateBR = (dateStr) => {
+                if (!dateStr) return '---';
+                const parts = dateStr.split('-');
+                return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+            };
+            
+            // Coletar dados da Tabela de Serviços
+            const servicos = [
+                [{text: 'Item', style: 'th'}, {text: 'Serviço Executado', style: 'th'}, {text: 'Data', style: 'th'}, {text: 'Início', style: 'th'}, {text: 'Fim', style: 'th'}, {text: 'Total', style: 'th'}, {text: 'Executantes', style: 'th'}]
+            ];
+            document.getElementById('bodyServicos').querySelectorAll('tr').forEach((tr, idx) => {
+                const inps = tr.querySelectorAll('input');
+                servicos.push([
+                    {text: (idx+1).toString(), style: 'tdCenter'},
+                    {text: inps[0].value, style: 'td'},
+                    {text: formatDateBR(inps[1].value), style: 'td'},
+                    {text: inps[2].value, style: 'tdCenter'},
+                    {text: inps[3].value, style: 'tdCenter'},
+                    {text: inps[4].value, style: 'tdCenter', color: '#FE8C00', bold: true},
+                    {text: inps[5].value, style: 'td'}
+                ]);
+            });
+
+            // Coletar Assinaturas (apenas se desenhadas)
+            const getSignatureImg = (pad) => {
+                if(pad.isEmpty()) return null;
+                // Criar um canvas temporário branco (se estiver no dark mode, as assinaturas estariam brancas no PDF sem fundo)
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = pad.canvas.width; tempCanvas.height = pad.canvas.height;
+                const tCtx = tempCanvas.getContext('2d');
+                tCtx.fillStyle = '#FFFFFF'; tCtx.fillRect(0,0,tempCanvas.width, tempCanvas.height);
+                tCtx.drawImage(pad.canvas, 0, 0);
+                // Se desenhou em branco (dark mode), precisamos inverter para preto para o PDF
+                if(document.documentElement.classList.contains('dark')){
+                    const imgData = tCtx.getImageData(0,0,tempCanvas.width, tempCanvas.height);
+                    for(let i=0; i<imgData.data.length; i+=4){
+                        if(imgData.data[i] > 200 && imgData.data[i+1] > 200 && imgData.data[i+2] > 200){
+                            imgData.data[i] = 0; imgData.data[i+1] = 0; imgData.data[i+2] = 0;
+                        }
+                    }
+                    tCtx.putImageData(imgData, 0, 0);
+                }
+                return tempCanvas.toDataURL('image/png');
+            };
+
+            const sigMec = getSignatureImg(padMec);
+            const sigCtrl = getSignatureImg(padCtrl);
+
+            // Montar grid de fotos
+            let fotosPDF = [];
+            if(photosArray.length > 0) {
+                fotosPDF = [
+                    { text: 'REGISTROS FOTOGRÁFICOS', style: 'sectionTitle', margin: [0, 15, 0, 5] },
+                    {
+                        columns: photosArray.map(img => ({
+                            image: img,
+                            width: 100,
+                            margin: [0,0,10,0]
+                        }))
+                    }
+                ];
+            }
+
+            // Definição Documento (pdfmake)
+            const docDefinition = {
+                pageSize: 'A4',
+                pageMargins: [30, 30, 30, 50],
+                content: [
+                    // Cabeçalho Principal
+                    {
+                        table: {
+                            widths: ['*', 'auto'],
+                            body: [
+                                [
+                                    {
+                                        text: [
+                                            {text: 'CONTER', color: '#0065FF', fontSize: 24, bold: true},
+                                            {text: 'PLAN\n', color: '#FE8C00', fontSize: 24, bold: true},
+                                            {text: 'ORDEM DE SERVIÇO DE MANUTENÇÃO', fontSize: 12, color: '#555'}
+                                        ],
+                                        border: [false, false, false, false]
+                                    },
+                                    {
+                                        table: {
+                                            body: [
+                                                [{text: 'Nº O.S.', fillColor: '#f3f4f6', bold: true, alignment: 'center', fontSize: 10}],
+                                                [{text: osNum, bold: true, fontSize: 18, color: '#0065FF', alignment: 'center'}]
+                                            ]
+                                        },
+                                        layout: 'lightHorizontalLines',
+                                        margin: [0, 5, 0, 0]
+                                    }
+                                ]
+                            ]
+                        },
+                        layout: 'noBorders',
+                        margin: [0, 0, 0, 15]
+                    },
+
+                    // Linha 1 Dados
+                    {
+                        columns: [
+                            { text: [{text: 'LOCAL DE EXECUÇÃO:\n', style: 'label'}, document.getElementById('local').value || '---'], width: '55%' },
+                            { text: [{text: 'TAG:\n', style: 'label'}, document.getElementById('tag').value || '---'], width: '25%' },
+                            { text: [{text: 'KM / HORÍMETRO:\n', style: 'label'}, document.getElementById('kmHorimetro').value || '---'], width: '20%' },
+                        ], margin: [0,0,0,10]
+                    },
+                    
+                    // Linha 2 Dados
+                    {
+                        columns: [
+                            { text: [{text: 'EQUIPAMENTO:\n', style: 'label'}, document.getElementById('equipamento').value || '---'], width: '55%' },
+                            { text: [{text: 'OPERADOR/MOTORISTA:\n', style: 'label'}, document.getElementById('operador').value || '---'], width: '45%' },
+                        ], margin: [0,0,0,15]
+                    },
+
+                    // Tipos e Datas
+                    {
+                        table: {
+                            widths: ['auto', '*'],
+                            body: [
+                                [
+                                    {
+                                        text: [
+                                            {text: 'TIPO DE O.S.\n', style: 'label'},
+                                            isCorretiva ? '☒ Corretiva   ☐ Preventiva' : '☐ Corretiva   ☒ Preventiva'
+                                        ],
+                                        fillColor: '#f9fafb', margin: [5,5]
+                                    },
+                                    {
+                                        columns: [
+                                            { text: [{text: 'DATA PARADA:\n', style: 'label'}, formatDateBR(document.getElementById('dataParada').value)], width: '*' },
+                                            { text: [{text: 'HORA PARADA:\n', style: 'label'}, document.getElementById('horaParada').value || '---'], width: '*' },
+                                            { text: [{text: 'DATA LIBERAÇÃO:\n', style: 'label'}, formatDateBR(document.getElementById('dataLib').value)], width: '*' },
+                                            { text: [{text: 'HORA LIBERAÇÃO:\n', style: 'label'}, document.getElementById('horaLib').value || '---'], width: '*' }
+                                        ],
+                                        margin: [5,5]
+                                    }
+                                ]
+                            ]
+                        }
+                    },
+
+                    // Problema
+                    { text: 'PROBLEMA APRESENTADO', style: 'sectionTitle', margin: [0, 15, 0, 2] },
+                    { text: document.getElementById('problema').value || 'Nenhum problema relatado.', style: 'boxText', margin: [0, 0, 0, 15] },
+
+                    // Tabela Serviços
+                    { text: 'SERVIÇOS EXECUTADOS', style: 'sectionTitle', margin: [0, 0, 0, 5] },
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto', '*'],
+                            body: servicos
+                        },
+                        layout: {
+                            hLineColor: function (i, node) { return '#e5e7eb'; },
+                            vLineColor: function (i, node) { return '#e5e7eb'; },
+                        }
+                    },
+
+                    // Fotos
+                    ...fotosPDF,
+
+                    // Assinaturas
+                    {
+                        columns: [
+                            {
+                                stack: [
+                                    sigMec ? {image: sigMec, width: 120, alignment: 'center'} : {text: '\n\n\n'},
+                                    {text: '__________________________________\nEng. Mecânica / Responsável', alignment: 'center', fontSize: 10, margin: [0,5,0,0]}
+                                ]
+                            },
+                            {
+                                stack: [
+                                    sigCtrl ? {image: sigCtrl, width: 120, alignment: 'center'} : {text: '\n\n\n'},
+                                    {text: '__________________________________\nControlador de Manutenção', alignment: 'center', fontSize: 10, margin: [0,5,0,0]}
+                                ]
+                            }
+                        ],
+                        margin: [0, 30, 0, 0]
+                    }
+                ],
+                
+                // Rodapé fixo com QR Code, GPS e Info
+                footer: function(currentPage, pageCount) {
+                    const now = new Date().toLocaleString('pt-BR');
+                    const locText = userLocation.lat ? `${userLocation.lat.toFixed(5)}, ${userLocation.lon.toFixed(5)}` : 'Não capturado';
+                    
+                    return {
+                        columns: [
+                            { qr: `OS: ${osNum}\nStatus: ${status}\nData: ${now}`, fit: 40 },
+                            { text: `Coordenadas GPS: ${locText}\nGerado em: ${now}\nStatus: ${status.toUpperCase()}`, fontSize: 7, color: '#888', margin: [10, 5, 0, 0] },
+                            { text: `Página ${currentPage} de ${pageCount}`, alignment: 'right', fontSize: 8, color: '#888', margin: [0, 15, 20, 0] }
+                        ],
+                        margin: [30, 0, 30, 0]
+                    };
+                },
+
+                styles: {
+                    label: { fontSize: 8, bold: true, color: '#6b7280' },
+                    sectionTitle: { fontSize: 10, bold: true, color: '#374151', fillColor: '#f3f4f6' },
+                    boxText: { fontSize: 10, color: '#111827' },
+                    th: { fillColor: '#f3f4f6', bold: true, fontSize: 9, color: '#374151', alignment: 'center' },
+                    td: { fontSize: 9, color: '#111827' },
+                    tdCenter: { fontSize: 9, color: '#111827', alignment: 'center' }
+                }
+            };
+
+            // Incrementa OS no localStorage para a próxima vez
+            localStorage.setItem('conterplan_next_os', (parseInt(osNum) + 1).toString());
+
+            const formattedDate = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+            const fileName = `OS_${osNum}_${formattedDate}.pdf`;
+            
+            // Gerar e baixar!
+            pdfMake.createPdf(docDefinition).download(fileName);
+            
+            alert(`O PDF foi gerado com sucesso!\n\nPor favor, lembre-se de salvar o arquivo no destino correto:\nC:\\Users\\marcos.junio\\OneDrive - Conterplan\\Documentos\\OFICINA\\CONTROLE OS`);
+        }
+
+        // Inicializa a aplicação
+        window.onload = initApp;
+    </script>
+</body>
+</html>
